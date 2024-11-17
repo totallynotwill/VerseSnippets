@@ -1,0 +1,73 @@
+# Import necessary modules for Fortnite devices, characters, and gameplay
+
+using { /Fortnite.com/Devices }
+using { /Fortnite.com/Characters }
+using { /Verse.org/Simulation }
+using { /UnrealEngine.com/Temporary/Diagnostics }
+using { /UnrealEngine.com/Temporary/SpatialMath }
+using { /Verse.org/Random }
+using { /Fortnite.com/Game }
+using { /Fortnite.com/FortPlayerUtilities }
+
+StringToMessage<localizes>(String : string) : message = "{String}"
+
+<#
+
+    Device created by: @totallynotwill_
+
+    About the device:
+
+    - Keeps track of any item that is currently in the players inventory.
+
+    Tutorial:
+
+    -
+
+#>
+
+CounterClass<public> := class<concrete>():
+    @editable   DebugName : string = ""
+    @editable   var IsEnabled : logic = false
+    @editable   Counter : hud_message_device = hud_message_device{}
+    @editable   Checker : conditional_button_device = conditional_button_device{}
+
+    # Hold a reference for the counter manager device.
+    var Manager : CounterManager = CounterManager{}
+
+    # Data Map to keep track of users assigned to the device.
+    var IsAssigned : [agent]logic = map{}
+
+    Init<public>() : void =
+        Print("Initialized Counter: {DebugName}")
+
+    AssignFunction(Agent : agent) : void =
+        if(IsEnabled?):
+            Print("{DebugName} counter is enabled, assigning counter to instigating player.")
+            if(IsAssigned[Agent]?):
+                return
+            else:
+                spawn{RefreshFunction(Agent)}
+        else:
+            Print("{DebugName} counter is not enabled, the counter will not be assigned to the instigating player.")
+
+    RefreshFunction(Agent : agent) <suspends> : void =
+        loop:
+            COUNT := Checker.GetItemCount(Agent,0)
+            Counter.SetText(StringToMessage("{COUNT}"))
+            Counter.Show(Agent)
+            Sleep(Manager.RefreshRate) 
+
+CounterManager := class(creative_device):
+    @editable   Counters : []CounterClass = array{}
+    @editable   Spawns : []player_spawner_device = array{}
+    @editable   var RefreshRate : float = 0.1
+
+    OnBegin<override>()<suspends>:void= 
+
+        # Iterate through all counters within the array and initialize
+        for (Index -> C : Counters):
+            C.Init()
+
+            # Grab spawn event of player and assign counter UI.
+            for(S : Spawns):
+                S.SpawnedEvent.Subscribe(C.AssignFunction)
