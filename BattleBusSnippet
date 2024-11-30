@@ -1,0 +1,151 @@
+using { /Fortnite.com/Devices }
+using { /Verse.org/Simulation }
+using { /UnrealEngine.com/Temporary/Diagnostics }
+using { /UnrealEngine.com/Temporary/SpatialMath }
+
+<#
+
+    Device created by: @totallynotwill_
+
+    About the device:
+
+    - Recreation of the OG battle bus.
+
+    Tutorial:
+
+    - Video coming soon..
+
+    - For now, paste from the bus assets code, create a building prop blueprint, and
+      attach your battlebus mesh along with the chairs, audio, and teleporter to the prop.
+
+#>
+
+BusAudioClass<public> := class<concrete>():
+    @editable   Jump : audio_player_device = audio_player_device{}
+    @editable   Takeoff : audio_player_device = audio_player_device{}
+    @editable   Ambience : audio_player_device = audio_player_device{}
+
+BusLocationClass<public> := class<concrete>():
+    @editable   Start : vector3 = vector3{}
+    @editable   End : vector3 = vector3{}
+    @editable   Hide : vector3 = vector3{}
+
+BusSettingsClass<public> := class<concrete>():
+    @editable   BusSpeed : float = 500.0 # Units per second
+    @editable   JumpDelay : float = 10.0 # Calculated in Seconds
+    @editable   HideDelay : float = 10.0 # Calculated in Seconds
+    @editable   var Debug : logic = false
+
+BusManager := class(creative_device):
+    @editable   Prop : creative_prop = creative_prop{}
+    @editable   Trigger : trigger_device = trigger_device{}
+    @editable   Input : input_trigger_device = input_trigger_device{}
+    @editable   Teleporter : teleporter_device = teleporter_device{}
+    @editable   Camera : gameplay_camera_orbit_device = gameplay_camera_orbit_device{}
+    @editable   Chairs : []chair_device = array{}
+    @editable   Audio : BusAudioClass = BusAudioClass{}
+    @editable   Locations : BusLocationClass = BusLocationClass{}
+    @editable   Settings : BusSettingsClass = BusSettingsClass{}
+
+    var BusMoving : logic = false
+
+    MoveToNextLocation(CreativeProp : creative_prop, Location : vector3)<suspends> : void =
+        CurrentPosition := CreativeProp.GetTransform().Translation
+        CurrentRotation := CreativeProp.GetTransform().Rotation
+        DistanceCalculation := Distance(CurrentPosition, Location)
+        TimeToMove := DistanceCalculation / Settings.BusSpeed
+
+        Result := CreativeProp.MoveTo(Location, CurrentRotation, TimeToMove)
+        if (Result = move_to_result.DestinationReached):
+            if(Settings.Debug?):
+                Print("Bus reached {Location}")
+
+    BusMovement()<suspends> : void =
+        CurrentRotation := Prop.GetTransform().Rotation
+        for(Players : GetPlayspace().GetPlayers()):
+            MoveToNextLocation(Prop, Locations.End)
+            if (Settings.Debug?):
+                Print("Bus has reached the final location, ejecting players.")
+            for(I : Chairs):
+                I.Eject(Players)
+            Sleep(Settings.HideDelay)
+            if(Settings.Debug?):
+                Print("Hiding bus for all players.")
+            if(Prop.TeleportTo[Locations.Hide, CurrentRotation]):
+            set BusMoving = false
+            Audio.Ambience.Stop()
+            return
+
+    PlaceAtFirstLocation() : void =
+        CurrentRotation := Prop.GetTransform().Rotation
+        if(Prop.TeleportTo[Locations.Start, CurrentRotation]):
+        if(Settings.Debug?):
+            Print("Bus placed at the first location.")
+
+    HandleJumpDelay() <suspends> : void =
+        Players := GetPlayspace().GetPlayers()
+        for(I : Chairs):
+            Sleep(Settings.JumpDelay)
+            if(Settings.Debug?):
+                Print("Players can now jump from the bus.")
+            for (Player : Players):
+                Input.Register(Player)
+            return
+
+    OnTriggerActivated(A : ?agent) : void =
+        Players := GetPlayspace().GetPlayers()
+        if(BusMoving?):
+            if(Settings.Debug?):
+                Print("Must wait until current bus path is completed.")
+        else:
+            PlaceAtFirstLocation()
+            Audio.Takeoff.Play()
+            Audio.Ambience.Play()
+            set BusMoving = true
+            spawn{ BusMovement() }
+            spawn { HandleJumpDelay() }
+            for (Player : Players):
+                Input.Unregister(Player)
+                SeatPlayer(Player, false)
+
+    SeatPlayer(A : agent, Logic : logic) : void =
+        var HasSeat : logic = false
+        set HasSeat = Logic
+
+        for(I : Chairs):
+            if(Settings.Debug?):
+                Print("Finding a seat for player.")
+            if(HasSeat = true):
+                if(Settings.Debug?):
+                    Print("Player not seated.")
+                if(I.IsOccupied[]):
+                    return
+            else:
+                I.Seat(A)
+                Camera.AddTo(A)
+                set HasSeat = true
+                if(Settings.Debug?):
+                    Print("Player has been seated.")
+
+    HandleExit(A : agent)<suspends> : void =
+        if(Settings.Debug?):
+            Print("Player jumped from the bus.")
+        for(I : Chairs):
+            I.Eject(A)
+        Sleep(0.2)
+        Camera.RemoveFrom(A)
+        Audio.Jump.Play(A)
+        Input.Unregister(A)
+        Teleporter.Teleport(A)
+        return
+
+    InputHandling(A : agent) : void =
+        spawn{ HandleExit(A) }
+
+    OnBegin<override>()<suspends>:void =
+        CurrentRotation := Prop.GetTransform().Rotation
+        if(Prop.TeleportTo[Locations.Hide, CurrentRotation]):
+        Trigger.TriggeredEvent.Subscribe(OnTriggerActivated)
+        Input.PressedEvent.Subscribe(InputHandling)
+        for(I : Chairs):
+            I.ExitedEvent.Subscribe(InputHandling)
