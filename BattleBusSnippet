@@ -109,8 +109,7 @@ BusManager := class(creative_device):
                 SeatPlayer(Player, false)
 
     SeatPlayer(A : agent, Logic : logic) : void =
-        var HasSeat : logic = false
-        set HasSeat = Logic
+        var HasSeat : logic = Logic
 
         for(I : Chairs):
             if(Settings.Debug?):
