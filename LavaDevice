@@ -90,7 +90,7 @@ lava_base_class<public> := class<unique>():
         OldScale := Prop.GetTransform().Scale
 
         # Check if the current Z scale is greater than 0.0
-        if (OldScale.Z > 0.0):
+        if (OldScale.Z > Scale.Empty):
             if(isFull?):
                 spawn{EmptyTriggeredSuspends()}
 
