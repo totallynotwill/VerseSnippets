@@ -1,0 +1,106 @@
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+using { /Fortnite.com }
+using { /Fortnite.com/AI }
+using { /Fortnite.com/Characters }
+using { /Fortnite.com/Devices }
+using { /Fortnite.com/FortPlayerUtilities }
+using { /Fortnite.com/Game }
+using { /UnrealEngine.com/Temporary/Diagnostics }
+using { /UnrealEngine.com/Temporary/SpatialMath }
+using { /Verse.org }
+using { /Verse.org/Assets }
+using { /Verse.org/Colors }
+using { /Verse.org/Colors/NamedColors }
+using { /Verse.org/Random }
+using { /Verse.org/Simulation }
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+lava_device<public> := class(creative_device):
+    @editable Lava<public> : []lava_base_class = array{}
+    @editable Debug<public> : logic = true
+
+    # OnBegin
+    OnBegin<override>()<suspends>: void =
+        # Initialize Classes
+        Initialize()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+    # Listen for Events
+    Initialize<public>():void=
+        for (Index -> LavaArray : Lava):
+            LavaArray.Initiate(Self, Index)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+lava_location_class<public> := class<unique>():
+    @editable Fill<public> : float = 10.0
+    @editable Empty<public> : float = 0.0
+
+lava_trigger_class<public> := class<unique>():
+    @editable Fill<public> : trigger_device = trigger_device{}
+    @editable Empty<public> : trigger_device = trigger_device{}
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
+
+lava_base_class<public> := class<unique>():
+    @editable Prop<public> : creative_prop = creative_prop{}
+    @editable Trigger<public> : lava_trigger_class = lava_trigger_class{}
+    @editable Scale<public> : lava_location_class = lava_location_class{}
+    @editable Rate<public> : float = 30.0
+    var Index<public> : int = 0
+    var isFull<public> : logic = false
+    var Reference<public> : lava_device = lava_device{}
+
+    Initiate<public>(CreativeDevice : lava_device, IndexInteger : int):void=
+        # Set Variables
+        set Reference = CreativeDevice
+        set Index = IndexInteger
+
+        # Handle Event Listeners + Lava Reset
+        spawn{EventListener()}
+
+        # Print Debug Information
+        if(Reference.Debug?):
+            Print("Lava {Index} has been initialized.", ?Color := LightGreen)
+
+    # Listen for Events
+    EventListener<public>()<suspends>:void=
+        if(Reference.Debug?):
+            Print("Listening to Lava {Index} events.", ?Color := LightGreen)
+        Fill := Trigger.Fill.TriggeredEvent.Subscribe(FillTriggered)
+        Empty := Trigger.Empty.TriggeredEvent.Subscribe(EmptyTriggered)
+
+    FillTriggered<public>(Agent : ?agent):void=
+        if(not isFull?):
+            spawn{FillTriggeredSuspends()}
+
+    FillTriggeredSuspends<public>()<suspends>:void=
+        if(Reference.Debug?):
+            Print("Filling Lava {Index}.", ?Color := Orange)
+        CurrentTransform := Prop.GetTransform()
+        NewScale := vector3{X := CurrentTransform.Scale.X, Y := CurrentTransform.Scale.Y, Z := Scale.Fill}  # Modify Z scale
+        Fill := Prop.MoveTo(transform{Translation := CurrentTransform.Translation, Rotation := CurrentTransform.Rotation, Scale := NewScale}, Rate)
+        set isFull = true
+        return
+
+    EmptyTriggered<public>(Agent : ?agent):void=
+        OldScale := Prop.GetTransform().Scale
+
+        # Check if the current Z scale is greater than 0.0
+        if (OldScale.Z > 0.0):
+            if(isFull?):
+                spawn{EmptyTriggeredSuspends()}
+
+    EmptyTriggeredSuspends<public>()<suspends>:void=
+        if(Reference.Debug?):
+            Print("Emptying Lava {Index}.", ?Color := Orange)
+        CurrentTransform := Prop.GetTransform()
+        NewScale := vector3{X := CurrentTransform.Scale.X, Y := CurrentTransform.Scale.Y, Z := Scale.Empty}  # Modify Z scale
+        Empty := Prop.MoveTo(transform{Translation := CurrentTransform.Translation, Rotation := CurrentTransform.Rotation, Scale := NewScale}, Rate)
+        set isFull = false
+        return
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
