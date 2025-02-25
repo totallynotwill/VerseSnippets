@@ -37,7 +37,7 @@ lava_device<public> := class(creative_device):
 
 lava_location_class<public> := class<unique>():
     @editable Fill<public> : float = 10.0
-    @editable Empty<public> : float = 0.0
+    @editable Empty<public> : float = 0.1
 
 lava_trigger_class<public> := class<unique>():
     @editable Fill<public> : trigger_device = trigger_device{}
