@@ -36,8 +36,8 @@ lava_device<public> := class(creative_device):
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
 
 lava_location_class<public> := class<unique>():
-    @editable Fill<public> : float = 10.0
-    @editable Empty<public> : float = 0.1
+    @editable Fill<public> : float = 100.0
+    @editable Empty<public> : float = 0.0
 
 lava_trigger_class<public> := class<unique>():
     @editable Fill<public> : trigger_device = trigger_device{}
@@ -48,7 +48,7 @@ lava_trigger_class<public> := class<unique>():
 lava_base_class<public> := class<unique>():
     @editable Prop<public> : creative_prop = creative_prop{}
     @editable Trigger<public> : lava_trigger_class = lava_trigger_class{}
-    @editable Scale<public> : lava_location_class = lava_location_class{}
+    @editable Locations<public> : lava_location_class = lava_location_class{}
     @editable Rate<public> : float = 30.0
     var Index<public> : int = 0
     var isFull<public> : logic = false
@@ -80,27 +80,25 @@ lava_base_class<public> := class<unique>():
     FillTriggeredSuspends<public>()<suspends>:void=
         if(Reference.Debug?):
             Print("Filling Lava {Index}.", ?Color := Orange)
-        CurrentTransform := Prop.GetTransform()
-        NewScale := vector3{X := CurrentTransform.Scale.X, Y := CurrentTransform.Scale.Y, Z := Scale.Fill}  # Modify Z scale
-        Fill := Prop.MoveTo(transform{Translation := CurrentTransform.Translation, Rotation := CurrentTransform.Rotation, Scale := NewScale}, Rate)
-        set isFull = true
+        Transform := Prop.GetTransform()
+        Fill := Prop.MoveTo(transform{Translation := vector3{X := Transform.Translation.X, Y := Transform.Translation.Y, Z := Locations.Fill}, Rotation := Transform.Rotation}, Rate)
+            set isFull = true
         return
 
     EmptyTriggered<public>(Agent : ?agent):void=
         OldScale := Prop.GetTransform().Scale
 
         # Check if the current Z scale is greater than 0.0
-        if (OldScale.Z > Scale.Empty):
+        if (OldScale.Z > 0.0):
             if(isFull?):
                 spawn{EmptyTriggeredSuspends()}
 
     EmptyTriggeredSuspends<public>()<suspends>:void=
         if(Reference.Debug?):
             Print("Emptying Lava {Index}.", ?Color := Orange)
-        CurrentTransform := Prop.GetTransform()
-        NewScale := vector3{X := CurrentTransform.Scale.X, Y := CurrentTransform.Scale.Y, Z := Scale.Empty}  # Modify Z scale
-        Empty := Prop.MoveTo(transform{Translation := CurrentTransform.Translation, Rotation := CurrentTransform.Rotation, Scale := NewScale}, Rate)
-        set isFull = false
+        Transform := Prop.GetTransform()
+        Empty := Prop.MoveTo(transform{Translation := vector3{X := Transform.Translation.X, Y := Transform.Translation.Y, Z := Locations.Empty}, Rotation := Transform.Rotation}, Rate)
+            set isFull = false
         return
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #
